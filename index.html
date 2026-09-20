@@ -122,7 +122,7 @@
   }
   .rail-status{ display:flex; flex-direction:column; align-items:center; gap:10px; }
   .status-dot{ width:7px; height:7px; border-radius:50%; background:var(--ok); box-shadow:0 0 0 3px rgba(82,217,196,0.15); }
-  .rail-clock{ font-family:var(--font-mono); font-size:10px; color:var(--muted); letter-spacing:0.08em; writing-mode:vertical-rl; transform:rotate(180deg); }
+  .rail-clock{ font-family:var(--font-mono); font-size:10px; color:var(--muted); letter-spacing:0.08em; writing-mode:vertical-rl; transform:rotate(180deg); font-variant-numeric:tabular-nums; }
 
   @media (max-width: 780px){
     .rail{
@@ -133,6 +133,32 @@
     .rail-nav{ display:none; }
     .rail-clock{ writing-mode:horizontal-tb; transform:none; }
   }
+
+  /* mobile menu toggle */
+  .menu-toggle{
+    display:none; width:44px; height:44px; padding:0; border:1px solid var(--line); border-radius:8px;
+    background:transparent; flex-direction:column; align-items:center; justify-content:center; gap:5px;
+  }
+  .menu-toggle span{ width:18px; height:1.5px; background:var(--text); transition:transform .35s var(--ease), opacity .35s var(--ease); }
+  .menu-toggle[aria-expanded="true"] span:nth-child(1){ transform:translateY(6.5px) rotate(45deg); }
+  .menu-toggle[aria-expanded="true"] span:nth-child(2){ opacity:0; }
+  .menu-toggle[aria-expanded="true"] span:nth-child(3){ transform:translateY(-6.5px) rotate(-45deg); }
+  @media (max-width:780px){ .menu-toggle{ display:flex; } }
+
+  .mobile-nav{
+    position:fixed; inset:0; z-index:50; display:flex; flex-direction:column; justify-content:center; gap:26px;
+    padding:0 32px; background:rgba(11,13,18,0.97); backdrop-filter:blur(10px);
+    opacity:0; visibility:hidden; transform:translateY(-12px);
+    transition:opacity .4s var(--ease), transform .4s var(--ease), visibility 0s linear .4s;
+  }
+  .mobile-nav.open{ opacity:1; visibility:visible; transform:translateY(0); transition:opacity .4s var(--ease), transform .4s var(--ease); }
+  .mobile-nav a{
+    font-family:var(--font-display); font-weight:700; font-size:clamp(1.8rem,9vw,2.6rem);
+    color:var(--text); display:flex; align-items:baseline; gap:14px; padding:6px 0;
+  }
+  .mobile-nav a::before{ content:attr(data-n); font-family:var(--font-mono); font-size:13px; color:var(--accent); }
+  .mobile-nav a.active{ color:var(--accent); }
+  @media (min-width:781px){ .mobile-nav{ display:none; } }
 
   main{ margin-left:88px; }
   @media (max-width: 780px){ main{ margin-left:0; } }
@@ -287,7 +313,7 @@
   .contact-links{ margin-top:56px; display:flex; flex-wrap:wrap; gap:14px 42px; }
   .contact-links a, .contact-links span{
     font-family:var(--font-mono); font-size:14px; letter-spacing:0.03em; display:flex; align-items:center; gap:10px;
-    color:var(--text-dim); padding-bottom:4px; border-bottom:1px solid var(--line);
+    color:var(--text-dim); padding:10px 0 12px; border-bottom:1px solid var(--line); min-height:44px; box-sizing:border-box;
   }
   .contact-links a:hover{ color:var(--text); border-color:var(--accent); }
   .contact-links .muted-note{ color:var(--muted); font-size:11px; border:none; }
@@ -295,6 +321,7 @@
   .foot{
     margin-top:90px; padding:26px 8vw; display:flex; justify-content:space-between; flex-wrap:wrap; gap:14px;
     font-family:var(--font-mono); font-size:11px; color:var(--muted); letter-spacing:0.06em;
+    font-variant-numeric:tabular-nums;
   }
   @media (max-width:780px){ .foot{ padding:22px; } }
 
@@ -304,6 +331,8 @@
     html{ scroll-behavior:auto; }
     .marquee-track{ animation:none; }
     .scroll-cue .bar::after{ animation:none; }
+    .mobile-nav{ transition:none; }
+    .mobile-nav.open{ transition:none; }
   }
 </style>
 
@@ -323,12 +352,23 @@
     <a href="#stack" data-n="03">stack</a>
     <a href="#contacto" data-n="04">contacto</a>
   </nav>
+  <button type="button" class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="mobileNav" aria-label="Abrir menú">
+    <span></span><span></span><span></span>
+  </button>
   <div class="rail-status">
     <span class="status-dot" aria-hidden="true"></span>
     <span class="rail-clock" id="clock">BOG —:—</span>
     <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Sistemas operativos</span>
   </div>
 </header>
+
+<nav class="mobile-nav" id="mobileNav" aria-hidden="true">
+  <a href="#inicio" data-n="00">inicio</a>
+  <a href="#enfoque" data-n="01">enfoque</a>
+  <a href="#trabajo" data-n="02">trabajo</a>
+  <a href="#stack" data-n="03">stack</a>
+  <a href="#contacto" data-n="04">contacto</a>
+</nav>
 
 <main>
 
@@ -361,7 +401,7 @@
   </section>
 
   <section id="enfoque">
-    <div class="eyebrow">01 — Enfoque</div>
+    <h2 class="eyebrow">01 — Enfoque</h2>
     <p class="about-lead">Trabajo en la intersección donde casi nadie quiere quedarse: <em>entre el ticket que hay que resolver hoy</em> y <em>el sistema que evita que vuelva a aparecer</em>. En Activos por Colombia eso significa mantener la operación de TI en pie y, al mismo tiempo, escribir el software interno — portales, visores, automatizaciones — que la empresa termina usando todos los días.</p>
     <div class="about-grid">
       <div class="about-cell"><div class="num">04</div><div class="cap">sistemas propios<br>en producción</div></div>
@@ -372,7 +412,7 @@
   </section>
 
   <section id="trabajo">
-    <div class="eyebrow">02 — Trabajo seleccionado</div>
+    <h2 class="eyebrow">02 — Trabajo seleccionado</h2>
     <div class="work-list">
 
       <article class="case">
@@ -424,7 +464,7 @@
   </section>
 
   <section id="stack">
-    <div class="eyebrow">03 — Herramientas</div>
+    <h2 class="eyebrow">03 — Herramientas</h2>
     <div class="stack-groups">
       <div class="stack-group">
         <h3>Desarrollo</h3>
@@ -514,48 +554,58 @@
   // instead of lagging a frame behind (the old hand-rolled wheel hijack did that).
   var lenis = null;
   if(window.Lenis && !reduceMotion){
-    lenis = new Lenis({
-      duration: 1.15,
-      easing: function(t){ return 1 - Math.pow(1 - t, 3.4); }, // ease-out-cubic-ish, matches power3.out reveals
-      smoothWheel: true,
-      wheelMultiplier: 1,
-      touchMultiplier: 1.15,
-      syncTouch: true
-    });
-
-    if(window.gsap){
-      gsap.ticker.add(function(time){ lenis.raf(time * 1000); });
-      gsap.ticker.lagSmoothing(0);
-    } else {
-      requestAnimationFrame(function raf(time){ lenis.raf(time); requestAnimationFrame(raf); });
-    }
-
-    if(window.ScrollTrigger){
-      lenis.on('scroll', ScrollTrigger.update);
-    }
-
-    // scroll progress → the thin accent line running down the side rail
-    lenis.on('scroll', function(e){
-      var max = Math.max(1, (document.documentElement.scrollHeight - window.innerHeight));
-      var pct = Math.min(1, Math.max(0, e.scroll / max));
-      document.documentElement.style.setProperty('--scroll-progress', (pct * 100).toFixed(2) + '%');
-    });
-
-    // route in-page nav links through Lenis's own eased scrollTo
-    document.querySelectorAll('a[href^="#"]').forEach(function(a){
-      a.addEventListener('click', function(e){
-        var id = a.getAttribute('href');
-        if(!id || id.length < 2) return;
-        var el = document.querySelector(id);
-        if(!el) return;
-        e.preventDefault();
-        var offset = window.innerWidth <= 780 ? -64 : 0;
-        lenis.scrollTo(el, { offset: offset, duration: 1.3 });
-        history.pushState(null, '', id);
+    try{
+      // autoRaf: true — Lenis drives its own animation loop internally.
+      // (Wiring it through gsap.ticker manually is the "official" recipe, but if
+      // that wiring doesn't run for any reason, Lenis still owns the wheel/touch
+      // events and the page freezes solid — autoRaf avoids that failure mode.)
+      lenis = new Lenis({
+        // lerp (continuous interpolation) instead of a fixed duration per wheel
+        // tick — duration-based easing restarts its timer on every tick, which
+        // feels "tosco"/laggy under a real mouse wheel. lerp tracks the target
+        // every frame, so it stays responsive and still glides.
+        lerp: 0.1,
+        smoothWheel: true,
+        wheelMultiplier: 1,
+        touchMultiplier: 1.2,
+        autoRaf: true
       });
-    });
+
+      if(window.ScrollTrigger){
+        lenis.on('scroll', ScrollTrigger.update);
+        if(window.gsap) gsap.ticker.lagSmoothing(0);
+      }
+
+      // scroll progress → the thin accent line running down the side rail
+      lenis.on('scroll', function(e){
+        var max = Math.max(1, (document.documentElement.scrollHeight - window.innerHeight));
+        var pct = Math.min(1, Math.max(0, e.scroll / max));
+        document.documentElement.style.setProperty('--scroll-progress', (pct * 100).toFixed(2) + '%');
+      });
+
+      // route in-page nav links through Lenis's own eased scrollTo
+      document.querySelectorAll('a[href^="#"]').forEach(function(a){
+        a.addEventListener('click', function(e){
+          var id = a.getAttribute('href');
+          if(!id || id.length < 2) return;
+          var el = document.querySelector(id);
+          if(!el) return;
+          e.preventDefault();
+          var offset = window.innerWidth <= 780 ? -64 : 0;
+          lenis.scrollTo(el, { offset: offset, duration: 1.3 });
+          history.pushState(null, '', id);
+        });
+      });
+    }catch(err){
+      // if Lenis blew up mid-setup, make sure it can't leave wheel/touch events
+      // captured with nothing driving the scroll — always fall back to native.
+      if(lenis && lenis.destroy){ try{ lenis.destroy(); }catch(e2){} }
+      lenis = null;
+      document.documentElement.style.scrollBehavior = 'smooth';
+      document.querySelectorAll('.rail-progress').forEach(function(el){ el.style.display = 'none'; });
+    }
   } else {
-    // Lenis unavailable or reduced motion requested — fall back to plain native scroll
+    // Lenis unavailable (CDN blocked, etc.) or reduced motion requested — plain native scroll
     document.documentElement.style.scrollBehavior = reduceMotion ? 'auto' : 'smooth';
     document.querySelectorAll('.rail-progress').forEach(function(el){ el.style.display = 'none'; });
   }
@@ -596,17 +646,38 @@
     });
   }
 
-  // nav active state
+  // nav active state (drives both the desktop rail and the mobile overlay)
   var navLinks = document.querySelectorAll('.rail-nav a');
+  var mobileNavLinks = document.querySelectorAll('.mobile-nav a');
   var sections = Array.prototype.map.call(navLinks, function(a){ return document.querySelector(a.getAttribute('href')); });
   function onScroll(){
     var pos = window.scrollY + window.innerHeight * 0.4;
     var current = 0;
     sections.forEach(function(s, i){ if(s && s.offsetTop <= pos) current = i; });
     navLinks.forEach(function(a, i){ a.classList.toggle('active', i === current); });
+    mobileNavLinks.forEach(function(a, i){ a.classList.toggle('active', i === current); });
   }
   window.addEventListener('scroll', onScroll, { passive:true });
   onScroll();
+
+  // mobile menu toggle
+  (function(){
+    var toggle = document.getElementById('menuToggle');
+    var panel = document.getElementById('mobileNav');
+    if(!toggle || !panel) return;
+    function setOpen(open){
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      toggle.setAttribute('aria-label', open ? 'Cerrar menú' : 'Abrir menú');
+      panel.classList.toggle('open', open);
+      panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+      document.body.style.overflow = open ? 'hidden' : '';
+      if(lenis){ if(open){ lenis.stop(); } else { lenis.start(); } }
+    }
+    toggle.addEventListener('click', function(){ setOpen(toggle.getAttribute('aria-expanded') !== 'true'); });
+    panel.querySelectorAll('a').forEach(function(a){ a.addEventListener('click', function(){ setOpen(false); }); });
+    document.addEventListener('keydown', function(e){ if(e.key === 'Escape') setOpen(false); });
+    window.addEventListener('resize', function(){ if(window.innerWidth > 780) setOpen(false); });
+  })();
 
   // global binary rain background (behind the whole site)
   (function(){
