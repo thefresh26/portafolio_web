@@ -555,10 +555,6 @@
   var lenis = null;
   if(window.Lenis && !reduceMotion){
     try{
-      // autoRaf: true — Lenis drives its own animation loop internally.
-      // (Wiring it through gsap.ticker manually is the "official" recipe, but if
-      // that wiring doesn't run for any reason, Lenis still owns the wheel/touch
-      // events and the page freezes solid — autoRaf avoids that failure mode.)
       lenis = new Lenis({
         // lerp (continuous interpolation) instead of a fixed duration per wheel
         // tick — duration-based easing restarts its timer on every tick, which
@@ -567,9 +563,19 @@
         lerp: 0.1,
         smoothWheel: true,
         wheelMultiplier: 1,
-        touchMultiplier: 1.2,
-        autoRaf: true
+        touchMultiplier: 1.2
       });
+
+      // Drive Lenis's clock with a plain requestAnimationFrame loop — the
+      // baseline usage every Lenis version supports. (The newer `autoRaf`
+      // option some CDN-pinned versions don't recognize; if it's silently
+      // ignored, wheel input gets captured but nothing ever calls
+      // lenis.raf(), and the page freezes solid — this avoids that.)
+      function lenisRaf(time){
+        lenis.raf(time);
+        requestAnimationFrame(lenisRaf);
+      }
+      requestAnimationFrame(lenisRaf);
 
       if(window.ScrollTrigger){
         lenis.on('scroll', ScrollTrigger.update);
