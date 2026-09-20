@@ -487,38 +487,65 @@
   var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var isFinePointer = window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches;
 
-  // slow, eased wheel scrolling (desktop only) — lets the page glide instead of jumping
+  // smooth eased wheel scrolling (desktop only) — glides like a Lenis-style inertia scroll
   if(isFinePointer && !reduceMotion){
     var scrollTarget = window.scrollY;
     var scrollCurrent = scrollTarget;
     var scrollAnimating = false;
-    var WHEEL_DAMPING = 0.62;   // slows how far each wheel tick moves
-    var SCROLL_EASE = 0.09;     // slows how quickly the page catches up (lower = slower/heavier)
+    var lastFrameTime = null;
+    var WHEEL_DAMPING = 1;        // how much of each wheel tick's distance is applied
+    var EASE_PER_FRAME = 0.24;    // catch-up rate at a reference 60fps — higher = snappier/less laggy
+    var MAX_DELTA = 200;          // clamp big trackpad/mouse bursts so one tick can't overshoot
 
     function maxScroll(){
       return Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
     }
 
-    function scrollLoop(){
+    function scrollLoop(ts){
+      if(lastFrameTime === null) lastFrameTime = ts - 16.6667; // avoid a wasted zero-motion first frame
+      var dt = Math.min(48, ts - lastFrameTime); // cap dt so a stalled tab doesn't jump
+      lastFrameTime = ts;
+      var frameEase = 1 - Math.pow(1 - EASE_PER_FRAME, dt / 16.6667);
+
       var diff = scrollTarget - scrollCurrent;
-      if(Math.abs(diff) < 0.5){
+      if(Math.abs(diff) < 0.4){
         scrollCurrent = scrollTarget;
         window.scrollTo(0, scrollCurrent);
         scrollAnimating = false;
+        lastFrameTime = null;
         return;
       }
-      scrollCurrent += diff * SCROLL_EASE;
+      scrollCurrent += diff * frameEase;
       window.scrollTo(0, scrollCurrent);
       requestAnimationFrame(scrollLoop);
+    }
+
+    function nudgeTarget(amount){
+      if(!scrollAnimating){ scrollCurrent = window.scrollY; scrollTarget = scrollCurrent; }
+      scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget + amount));
+      if(!scrollAnimating){ scrollAnimating = true; lastFrameTime = null; requestAnimationFrame(scrollLoop); }
     }
 
     window.addEventListener('wheel', function(e){
       if(e.ctrlKey) return; // let pinch-zoom through untouched
       e.preventDefault();
-      if(!scrollAnimating){ scrollCurrent = window.scrollY; scrollTarget = scrollCurrent; }
-      scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget + e.deltaY * WHEEL_DAMPING));
-      if(!scrollAnimating){ scrollAnimating = true; requestAnimationFrame(scrollLoop); }
+      var delta = Math.max(-MAX_DELTA, Math.min(MAX_DELTA, e.deltaY));
+      nudgeTarget(delta * WHEEL_DAMPING);
     }, { passive:false });
+
+    // route in-page nav links through the same smooth animation instead of native jump scroll
+    document.querySelectorAll('a[href^="#"]').forEach(function(a){
+      a.addEventListener('click', function(e){
+        var id = a.getAttribute('href');
+        var el = id && id.length > 1 ? document.querySelector(id) : null;
+        if(!el) return;
+        e.preventDefault();
+        if(!scrollAnimating){ scrollCurrent = window.scrollY; }
+        scrollTarget = Math.max(0, Math.min(maxScroll(), el.getBoundingClientRect().top + window.scrollY));
+        if(!scrollAnimating){ scrollAnimating = true; lastFrameTime = null; requestAnimationFrame(scrollLoop); }
+        history.pushState(null, '', id);
+      });
+    });
 
     window.addEventListener('resize', function(){
       scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget));
