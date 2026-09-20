@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700;900&family=Literata:ital,opsz,wght@0,18..144,400;0,18..144,500;1,18..144,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
 
 <style>
   :root{
@@ -24,11 +25,14 @@
     --font-display: 'Unbounded', 'Arial Black', sans-serif;
     --font-body: 'Literata', Georgia, 'Times New Roman', serif;
     --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+    --ease: cubic-bezier(.22,1,.36,1);
   }
 
   *{ box-sizing:border-box; }
-  html{ scroll-behavior:smooth; scrollbar-width:none; -ms-overflow-style:none; }
+  html{ scroll-behavior:auto; scrollbar-width:none; -ms-overflow-style:none; }
   html::-webkit-scrollbar{ display:none; width:0; height:0; }
+  html.lenis, html.lenis body{ height:auto; }
+  html.lenis.lenis-smooth{ scroll-behavior:auto; }
   body{
     background: var(--bg);
     color: var(--text);
@@ -88,6 +92,17 @@
     background: linear-gradient(180deg, rgba(11,13,18,0.9), rgba(11,13,18,0.6));
     backdrop-filter: blur(6px);
   }
+  .rail-progress{
+    position:absolute; right:-1px; top:0; width:1px; height:100%;
+    background:var(--line); overflow:hidden; pointer-events:none;
+  }
+  .rail-progress::after{
+    content:''; position:absolute; left:0; top:0; width:100%;
+    height: var(--scroll-progress, 0%);
+    background: linear-gradient(180deg, var(--accent), var(--ok));
+    will-change: height;
+  }
+  @media (max-width: 780px){ .rail-progress{ display:none; } }
   .rail-mark{
     font-family:var(--font-display); font-weight:900; font-size:15px; letter-spacing:0.02em;
     width:38px; height:38px; border:1px solid var(--line); border-radius:50%;
@@ -201,12 +216,18 @@
   /* WORK */
   .work-list{ margin-top:20px; }
   .case{
-    display:grid; grid-template-columns:120px 1fr 260px; gap:36px; padding:46px 0;
-    border-top:1px solid var(--line); align-items:start;
+    display:grid; grid-template-columns:120px 1fr 260px; gap:36px; padding:46px 28px;
+    margin:0 -28px; border-top:1px solid var(--line); align-items:start; border-radius:6px;
+    transition: background-color .45s var(--ease), transform .45s var(--ease);
   }
   .case:last-child{ border-bottom:none; }
-  .case-index{ font-family:var(--font-mono); font-size:14px; color:var(--muted); padding-top:6px; }
-  .case-title{ font-size:clamp(1.6rem,3.2vw,2.6rem); font-weight:700; line-height:1.05; }
+  @media (hover:hover) and (pointer:fine){
+    .case:hover{ background: var(--surface); transform: translateX(6px); }
+    .case:hover .case-index{ color:var(--accent); }
+    .case:hover .case-title{ color:var(--accent); }
+  }
+  .case-index{ font-family:var(--font-mono); font-size:14px; color:var(--muted); padding-top:6px; transition:color .35s var(--ease); }
+  .case-title{ font-size:clamp(1.6rem,3.2vw,2.6rem); font-weight:700; line-height:1.05; transition:color .35s var(--ease); }
   .case-status{
     display:inline-flex; align-items:center; gap:7px; font-family:var(--font-mono); font-size:10px;
     letter-spacing:0.1em; color:var(--ok); text-transform:uppercase; margin-top:14px;
@@ -224,11 +245,11 @@
     display:flex; align-items:center; gap:8px; color:var(--text); justify-self:start;
     padding:12px 4px; margin:-12px -4px 0; min-height:44px;
   }
-  .case-link .arrow{ transition:transform .25s ease; }
+  .case-link .arrow{ transition:transform .4s var(--ease); }
   .case-link:hover .arrow{ transform:translate(3px,-3px); }
   .case-link.disabled{ color:var(--muted); }
   @media (max-width:900px){
-    .case{ grid-template-columns:1fr; gap:14px; }
+    .case{ grid-template-columns:1fr; gap:14px; margin:0; padding:36px 0; }
     .case-link{ justify-self:start; }
   }
 
@@ -293,6 +314,7 @@
 <div class="cursor-ring" id="cursorRing"></div>
 
 <header class="rail">
+  <div class="rail-progress" aria-hidden="true"></div>
   <div class="rail-mark">SE</div>
   <nav class="rail-nav" id="railNav">
     <a href="#inicio" data-n="00">inicio</a>
@@ -487,69 +509,55 @@
   var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var isFinePointer = window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches;
 
-  // smooth eased wheel scrolling (desktop only) — glides like a Lenis-style inertia scroll
-  if(isFinePointer && !reduceMotion){
-    var scrollTarget = window.scrollY;
-    var scrollCurrent = scrollTarget;
-    var scrollAnimating = false;
-    var lastFrameTime = null;
-    var WHEEL_DAMPING = 1;        // how much of each wheel tick's distance is applied
-    var EASE_PER_FRAME = 0.24;    // catch-up rate at a reference 60fps — higher = snappier/less laggy
-    var MAX_DELTA = 200;          // clamp big trackpad/mouse bursts so one tick can't overshoot
+  // buttery inertia scroll via Lenis, wired into GSAP's ticker so ScrollTrigger
+  // and Lenis share one clock — this is what makes reveals track the scroll 1:1
+  // instead of lagging a frame behind (the old hand-rolled wheel hijack did that).
+  var lenis = null;
+  if(window.Lenis && !reduceMotion){
+    lenis = new Lenis({
+      duration: 1.15,
+      easing: function(t){ return 1 - Math.pow(1 - t, 3.4); }, // ease-out-cubic-ish, matches power3.out reveals
+      smoothWheel: true,
+      wheelMultiplier: 1,
+      touchMultiplier: 1.15,
+      syncTouch: true
+    });
 
-    function maxScroll(){
-      return Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    if(window.gsap){
+      gsap.ticker.add(function(time){ lenis.raf(time * 1000); });
+      gsap.ticker.lagSmoothing(0);
+    } else {
+      requestAnimationFrame(function raf(time){ lenis.raf(time); requestAnimationFrame(raf); });
     }
 
-    function scrollLoop(ts){
-      if(lastFrameTime === null) lastFrameTime = ts - 16.6667; // avoid a wasted zero-motion first frame
-      var dt = Math.min(48, ts - lastFrameTime); // cap dt so a stalled tab doesn't jump
-      lastFrameTime = ts;
-      var frameEase = 1 - Math.pow(1 - EASE_PER_FRAME, dt / 16.6667);
-
-      var diff = scrollTarget - scrollCurrent;
-      if(Math.abs(diff) < 0.4){
-        scrollCurrent = scrollTarget;
-        window.scrollTo(0, scrollCurrent);
-        scrollAnimating = false;
-        lastFrameTime = null;
-        return;
-      }
-      scrollCurrent += diff * frameEase;
-      window.scrollTo(0, scrollCurrent);
-      requestAnimationFrame(scrollLoop);
+    if(window.ScrollTrigger){
+      lenis.on('scroll', ScrollTrigger.update);
     }
 
-    function nudgeTarget(amount){
-      if(!scrollAnimating){ scrollCurrent = window.scrollY; scrollTarget = scrollCurrent; }
-      scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget + amount));
-      if(!scrollAnimating){ scrollAnimating = true; lastFrameTime = null; requestAnimationFrame(scrollLoop); }
-    }
+    // scroll progress → the thin accent line running down the side rail
+    lenis.on('scroll', function(e){
+      var max = Math.max(1, (document.documentElement.scrollHeight - window.innerHeight));
+      var pct = Math.min(1, Math.max(0, e.scroll / max));
+      document.documentElement.style.setProperty('--scroll-progress', (pct * 100).toFixed(2) + '%');
+    });
 
-    window.addEventListener('wheel', function(e){
-      if(e.ctrlKey) return; // let pinch-zoom through untouched
-      e.preventDefault();
-      var delta = Math.max(-MAX_DELTA, Math.min(MAX_DELTA, e.deltaY));
-      nudgeTarget(delta * WHEEL_DAMPING);
-    }, { passive:false });
-
-    // route in-page nav links through the same smooth animation instead of native jump scroll
+    // route in-page nav links through Lenis's own eased scrollTo
     document.querySelectorAll('a[href^="#"]').forEach(function(a){
       a.addEventListener('click', function(e){
         var id = a.getAttribute('href');
-        var el = id && id.length > 1 ? document.querySelector(id) : null;
+        if(!id || id.length < 2) return;
+        var el = document.querySelector(id);
         if(!el) return;
         e.preventDefault();
-        if(!scrollAnimating){ scrollCurrent = window.scrollY; }
-        scrollTarget = Math.max(0, Math.min(maxScroll(), el.getBoundingClientRect().top + window.scrollY));
-        if(!scrollAnimating){ scrollAnimating = true; lastFrameTime = null; requestAnimationFrame(scrollLoop); }
+        var offset = window.innerWidth <= 780 ? -64 : 0;
+        lenis.scrollTo(el, { offset: offset, duration: 1.3 });
         history.pushState(null, '', id);
       });
     });
-
-    window.addEventListener('resize', function(){
-      scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget));
-    });
+  } else {
+    // Lenis unavailable or reduced motion requested — fall back to plain native scroll
+    document.documentElement.style.scrollBehavior = reduceMotion ? 'auto' : 'smooth';
+    document.querySelectorAll('.rail-progress').forEach(function(el){ el.style.display = 'none'; });
   }
 
   // custom cursor
@@ -572,15 +580,19 @@
       el.addEventListener('mouseleave', function(){ ring.classList.remove('hover'); });
     });
 
-    // magnetic effect
+    // magnetic effect — instant while tracking the cursor, eased on release
     document.querySelectorAll('.magnetic').forEach(function(el){
       el.addEventListener('mousemove', function(e){
+        el.style.transition = 'none';
         var b = el.getBoundingClientRect();
         var relX = e.clientX - (b.left + b.width/2);
         var relY = e.clientY - (b.top + b.height/2);
         el.style.transform = 'translate(' + relX*0.22 + 'px,' + relY*0.3 + 'px)';
       });
-      el.addEventListener('mouseleave', function(){ el.style.transform = 'translate(0,0)'; });
+      el.addEventListener('mouseleave', function(){
+        el.style.transition = 'transform .5s var(--ease, cubic-bezier(.22,1,.36,1))';
+        el.style.transform = 'translate(0,0)';
+      });
     });
   }
 
@@ -831,22 +843,56 @@
     if(imgEl.complete && imgEl.naturalWidth){ build(); }
     else { imgEl.addEventListener('load', build); }
   })();
-  // GSAP reveals
+  // GSAP reveals — softer, longer eases and a touch of scale/parallax so
+  // sections settle into place instead of just fading, closer to the
+  // inertia-driven feel of the smooth-scroll reference.
   if(window.gsap && window.ScrollTrigger && !reduceMotion){
     gsap.registerPlugin(ScrollTrigger);
+    ScrollTrigger.defaults({ toggleActions: 'play none none reverse' });
 
-    gsap.from('.hero-name .line span', {
-      yPercent: 110, duration: 1.1, ease: 'power4.out', stagger: 0.12, delay: 0.15
-    });
-    gsap.from('.hero-sub, .hero-company, .hero-roles, .hero-tag', {
-      opacity: 0, y: 16, duration: 0.9, ease: 'power2.out', stagger: 0.08, delay: 0.55
-    });
+    var heroTl = gsap.timeline({ delay: 0.15 });
+    heroTl.from('.hero-name .line span', {
+      yPercent: 112, duration: 1.3, ease: 'expo.out', stagger: 0.13
+    })
+    .from('.hero-portrait', {
+      opacity: 0, scale: 0.92, duration: 1.3, ease: 'expo.out'
+    }, 0.05)
+    .from('.hero-sub, .hero-company, .hero-roles, .hero-tag, .scroll-cue', {
+      opacity: 0, y: 18, duration: 1, ease: 'power3.out', stagger: 0.09
+    }, 0.35);
 
-    document.querySelectorAll('.about-lead, .about-cell, .case, .stack-group, .contact-cta, .contact-links').forEach(function(el){
+    // hairline eyebrow markers draw themselves in as each section arrives
+    document.querySelectorAll('.eyebrow').forEach(function(el){
       gsap.from(el, {
-        opacity: 0, y: 34, duration: 0.9, ease: 'power2.out',
+        opacity: 0, x: -14, duration: 0.8, ease: 'power3.out',
+        scrollTrigger: { trigger: el, start: 'top 90%' }
+      });
+    });
+
+    document.querySelectorAll('.about-lead, .contact-cta, .contact-links').forEach(function(el){
+      gsap.from(el, {
+        opacity: 0, y: 46, duration: 1.05, ease: 'power3.out',
         scrollTrigger: { trigger: el, start: 'top 88%' }
       });
+    });
+
+    // grid / list groups settle in with a gentle stagger instead of one flat block
+    [ { sel: '.about-grid', items: '.about-cell', y: 28 },
+      { sel: '.work-list', items: '.case', y: 44 },
+      { sel: '.stack-groups', items: '.stack-group', y: 30 }
+    ].forEach(function(group){
+      var container = document.querySelector(group.sel);
+      if(!container) return;
+      gsap.from(container.querySelectorAll(group.items), {
+        opacity: 0, y: group.y, scale: 0.985, duration: 0.95, ease: 'power3.out', stagger: 0.1,
+        scrollTrigger: { trigger: container, start: 'top 85%' }
+      });
+    });
+
+    // hero portrait drifts at a slightly different rate than the copy beside it
+    gsap.to('.hero-portrait', {
+      yPercent: 8, ease: 'none',
+      scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 0.6 }
     });
   }
 })();
